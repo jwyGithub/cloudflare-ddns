@@ -1,0 +1,13 @@
+[[ddns]]
+zone = "example.com"
+zone_id = ""
+records = ["example.com", "*.example.com"]
+api_token = ""
+interval_secs = 60
+
+[[ddns]]
+zone = "example.com"
+zone_id = ""
+records = ["example.com", "*.example.com"]
+api_token = ""
+interval_secs = 60
