@@ -14,11 +14,15 @@ async fn main() -> anyhow::Result<()> {
         )
         .init();
 
-    let config_path = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "config.toml".to_owned());
-    let config =
-        ddns::Config::load(&config_path).with_context(|| format!("加载配置失败: {config_path}"))?;
+    let config_path = match std::env::args().nth(1) {
+        Some(path) => path.into(),
+        None => std::env::current_exe()?
+            .parent()
+            .unwrap_or(std::path::Path::new("."))
+            .join("config.toml"),
+    };
+    let config = ddns::Config::load(&config_path)
+        .with_context(|| format!("加载配置失败: {}", config_path.display()))?;
     ensure!(!config.ddns.is_empty(), "配置中至少需要一条 [[ddns]]");
 
     let mut tasks = JoinSet::new();

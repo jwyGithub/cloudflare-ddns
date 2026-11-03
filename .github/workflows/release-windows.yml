@@ -1,0 +1,32 @@
+name: Release Windows x64 executable
+
+on:
+  push:
+    tags:
+      - "*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - name: Build Windows x64 executable
+        run: cargo build --release --locked --target x86_64-pc-windows-msvc
+      - name: Package executable and example config
+        shell: pwsh
+        run: |
+          $packageDir = Join-Path $env:RUNNER_TEMP "cloudflare-ddns-windows-x64"
+          New-Item -ItemType Directory -Force -Path $packageDir | Out-Null
+          Copy-Item "target/x86_64-pc-windows-msvc/release/cloudflare-ddns.exe" $packageDir
+          Copy-Item "config.example.toml" (Join-Path $packageDir "config.toml")
+          Compress-Archive -Path (Join-Path $packageDir "*") -DestinationPath (Join-Path $env:RUNNER_TEMP "cloudflare-ddns-windows-x64.zip")
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" "${{ runner.temp }}/cloudflare-ddns-windows-x64.zip" --generate-notes --verify-tag

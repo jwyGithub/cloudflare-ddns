@@ -149,7 +149,7 @@ async fn fetch_public_ipv6(client: &DdnsClient, urls: &[&str]) -> anyhow::Result
             .parse::<Ipv6Addr>()
         {
             Ok(ip) => return Ok(ip),
-            Err(error) => last_error = format!("回显响应不是 IPv6 地址: {error}"),
+            Err(_) => last_error = format!("HTTP {status}: 回显响应不是 IPv6 地址"),
         }
     }
     bail!("所有 IPv6 回显服务都失败: {last_error}")
@@ -361,10 +361,11 @@ mod tests {
         assert!(config.validate().is_err(), "空 Token 应在启动时被拒绝");
         assert_eq!(config.ddns.len(), 2);
         assert_eq!(config.ddns[0].zone, "example.com");
-        assert_eq!(config.ddns[1].zone, "example.com");
+        assert_eq!(config.ddns[1].zone, "example2.com");
         assert_eq!(config.ddns[0].records, ["example.com", "*.example.com"]);
-        assert_eq!(config.ddns[1].records, ["example.com", "*.example.com"]);
+        assert_eq!(config.ddns[1].records, ["example2.com", "*.example2.com"]);
         for entry in &mut config.ddns {
+            entry.zone_id = "test-zone".to_owned();
             entry.api_token = "test-token".to_owned();
         }
         config.validate().unwrap();
