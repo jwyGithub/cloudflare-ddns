@@ -103,7 +103,7 @@ pub async fn run(cfg: DdnsConfig) {
                     warn!(zone = %cfg.zone, error = %format!("{error:#}"), "DDNS 同步失败，将重试")
                 }
             },
-            Ok(_) => debug!(zone = %cfg.zone, "公网 IPv6 未变化"),
+            Ok(_) => info!(zone = %cfg.zone, "公网 IPv6 未变化"),
             Err(error) => {
                 warn!(zone = %cfg.zone, error = %format!("{error:#}"), "获取公网 IPv6 失败")
             }
