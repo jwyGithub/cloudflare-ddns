@@ -16,11 +16,23 @@ async fn main() -> anyhow::Result<()> {
     let log_file = open_log_file(&executable)?;
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+    let utc8 = time::UtcOffset::from_hms(8, 0, 0).expect("固定 UTC+8 偏移有效");
     tracing_subscriber::registry()
         .with(filter)
-        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
         .with(
             tracing_subscriber::fmt::layer()
+                .with_timer(tracing_subscriber::fmt::time::OffsetTime::new(
+                    utc8,
+                    time::format_description::well_known::Rfc3339,
+                ))
+                .with_writer(std::io::stderr),
+        )
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_timer(tracing_subscriber::fmt::time::OffsetTime::new(
+                    utc8,
+                    time::format_description::well_known::Rfc3339,
+                ))
                 .with_ansi(false)
                 .with_writer(log_file),
         )

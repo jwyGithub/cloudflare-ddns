@@ -16,4 +16,5 @@ serde_json = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "signal", "net"] }
 toml = "0.8"
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "time"] }
+time = "0.3"
