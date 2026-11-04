@@ -19,6 +19,7 @@ use tracing::{debug, info, warn};
 
 const CF_API_BASE: &str = "https://api.cloudflare.com/client/v4";
 const ECHO_URLS: [&str; 2] = ["https://api6.ipify.org/", "https://ipv6.icanhazip.com/"];
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 type DdnsClient = Client<hyper_rustls::HttpsConnector<HttpConnector>, Full<Bytes>>;
 
 #[derive(Debug, Deserialize)]
@@ -103,7 +104,7 @@ pub async fn run(cfg: DdnsConfig) {
                     warn!(zone = %cfg.zone, error = %format!("{error:#}"), "DDNS 同步失败，将重试")
                 }
             },
-            Ok(_) => info!(zone = %cfg.zone, "公网 IPv6 未变化"),
+            Ok(ip) => info!(zone = %cfg.zone, %ip, "公网 IPv6 未变化"),
             Err(error) => {
                 warn!(zone = %cfg.zone, error = %format!("{error:#}"), "获取公网 IPv6 失败")
             }
@@ -125,18 +126,21 @@ fn build_client() -> anyhow::Result<DdnsClient> {
 async fn fetch_public_ipv6(client: &DdnsClient, urls: &[&str]) -> anyhow::Result<Ipv6Addr> {
     let mut last_error = String::new();
     for url in urls {
-        let response = match client.request(get(url)).await {
-            Ok(response) => response,
-            Err(error) => {
+        let response = match tokio::time::timeout(REQUEST_TIMEOUT, client.request(get(url))).await {
+            Ok(Ok(response)) => response,
+            Ok(Err(error)) => {
                 last_error = error.to_string();
+                continue;
+            }
+            Err(_) => {
+                last_error = format!("请求超时（{} 秒）", REQUEST_TIMEOUT.as_secs());
                 continue;
             }
         };
         let status = response.status();
-        let bytes = response
-            .into_body()
-            .collect()
+        let bytes = tokio::time::timeout(REQUEST_TIMEOUT, response.into_body().collect())
             .await
+            .context("读取 IPv6 回显响应超时")?
             .context("读取 IPv6 回显响应失败")?
             .to_bytes();
         if !status.is_success() {
@@ -221,15 +225,14 @@ async fn cf_request(
             .body(Full::default())
             .context("构造 Cloudflare 请求失败")?,
     };
-    let response = client
-        .request(request)
+    let response = tokio::time::timeout(REQUEST_TIMEOUT, client.request(request))
         .await
+        .context("请求 Cloudflare API 超时")?
         .context("请求 Cloudflare API 失败")?;
     let status = response.status();
-    let bytes = response
-        .into_body()
-        .collect()
+    let bytes = tokio::time::timeout(REQUEST_TIMEOUT, response.into_body().collect())
         .await
+        .context("读取 Cloudflare 响应超时")?
         .context("读取 Cloudflare 响应失败")?
         .to_bytes();
     let value: Value = serde_json::from_slice(&bytes)
